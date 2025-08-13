@@ -6,6 +6,17 @@ body {
     margin-top: 20px;
 }
 
+#controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#controls p {
+    margin: 0;
+}
+
 #staff {
     border: 1px solid black;
     padding: 10px;
@@ -13,11 +24,27 @@ body {
     background-color: #f9f9f9;
 }
 
+#buttons-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    width: 100%;
+    max-width: 600px;
+}
+
 #buttons-container button {
-    margin: 5px;
     padding: 10px 15px;
     font-size: 16px;
     cursor: pointer;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fff;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+#buttons-container button:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
 }
 
 #feedback {
@@ -28,7 +55,6 @@ body {
 }
 
 #next-button {
-    margin-top: 20px;
     padding: 12px 20px;
     font-size: 16px;
     cursor: pointer;
