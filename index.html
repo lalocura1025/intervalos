@@ -4,22 +4,271 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estudio de Intervalos</title>
-    <link rel="stylesheet" href="style.css">
-    <script type="module" src="script.js"></script>
+    <!-- 1. Cargar la biblioteca VexFlow globalmente -->
+    <script src="https://unpkg.com/vexflow/releases/vexflow-min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+        }
+        h1 {
+            color: #0d6efd;
+        }
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 180px; /* Ensures space is reserved */
+            justify-content: center;
+        }
+        #staff {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 20px 0;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #mental-notes {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+        }
+        #controls {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #buttons-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            width: 100%;
+            max-width: 600px;
+        }
+        #buttons-container button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        #buttons-container button:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+        #feedback {
+            margin-top: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            min-height: 25px;
+        }
+        #next-button {
+            margin-top: 20px;
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        #next-button:hover {
+            background-color: #0b5ed7;
+        }
+        /* Utility class to hide elements */
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <h1>Estudio de Intervalos Musicales</h1>
-    <p>Identifica el intervalo que se muestra en la partitura.</p>
 
-    <div id="staff"></div>
-
-    <div id="buttons-container">
-        <!-- Los botones de respuesta se generarán aquí -->
+    <!-- Controles para seleccionar el modo de juego -->
+    <div id="controls">
+        <label for="game-mode">Quiero:</label>
+        <select id="game-mode">
+            <option value="identify-staff">Identificar (Partitura)</option>
+            <option value="identify-mental">Identificar (Mental)</option>
+        </select>
     </div>
 
+    <!-- Contenedor para el área de juego (partitura o texto) -->
+    <div class="game-container">
+        <div id="staff"></div>
+        <div id="mental-notes" class="hidden"></div>
+    </div>
+
+    <p>Identifica el intervalo que se muestra.</p>
+
+    <!-- Contenedor para los botones de respuesta -->
+    <div id="buttons-container"></div>
+
+    <!-- Párrafo para mostrar feedback (Correcto/Incorrecto) -->
     <p id="feedback"></p>
 
+    <!-- Botón para pasar al siguiente intervalo -->
     <button id="next-button">Siguiente Intervalo</button>
 
+    <script>
+        // **CORRECCIÓN**: Cambiar el listener a 'window.onload'
+        // Esto asegura que TODO, incluyendo scripts externos, se haya cargado antes de ejecutar el código.
+        window.onload = function() {
+
+            // Aliases para las clases de VexFlow para un código más limpio
+            const { Renderer, Stave, StaveNote, Voice, Formatter, Accidental } = Vex.Flow;
+
+            // Referencias a los elementos del DOM
+            const staffDiv = document.getElementById("staff");
+            const mentalNotesDiv = document.getElementById("mental-notes");
+            const feedbackEl = document.getElementById("feedback");
+            const nextButton = document.getElementById("next-button");
+            const buttonsContainer = document.getElementById('buttons-container');
+            const gameModeSelector = document.getElementById('game-mode');
+
+            // --- Definiciones de Teoría Musical ---
+            const noteValues = { 'c': 0, 'c#': 1, 'db': 1, 'd': 2, 'd#': 3, 'eb': 3, 'e': 4, 'f': 5, 'f#': 6, 'gb': 6, 'g': 7, 'g#': 8, 'ab': 8, 'a': 9, 'a#': 10, 'bb': 10, 'b': 11 };
+            const noteNames = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']; // Nombres en mayúscula para mostrar
+            const intervals = [
+                { name: "2da Menor", semitones: 1 }, { name: "2da Mayor", semitones: 2 },
+                { name: "3ra Menor", semitones: 3 }, { name: "3ra Mayor", semitones: 4 },
+                { name: "4ta Justa", semitones: 5 }, { name: "Tritono", semitones: 6 },
+                { name: "5ta Justa", semitones: 7 }, { name: "6ta Mayor", semitones: 9 },
+                { name: "7ma Mayor", semitones: 11 }, { name: "8va Justa", semitones: 12 },
+            ];
+            const baseNotes = ['c/4', 'd/4', 'e/4', 'f/4', 'g/4', 'a/4'];
+
+            // --- Estado de la Aplicación ---
+            let currentCorrectInterval = null;
+            let answered = false;
+            let currentNotes = { first: '', second: '' }; // Almacena las notas actuales
+
+            // --- Funciones Principales ---
+
+            function drawIntervalOnStaff() {
+                staffDiv.innerHTML = '';
+                try {
+                    const renderer = new Renderer(staffDiv, Renderer.Backends.SVG);
+                    renderer.resize(400, 150);
+                    const context = renderer.getContext();
+                    const stave = new Stave(20, 40, 360);
+                    stave.addClef("treble").setContext(context).draw();
+
+                    const notesToDraw = [
+                        new StaveNote({ keys: [currentNotes.first.toLowerCase()], duration: "h" }),
+                        new StaveNote({ keys: [currentNotes.second.toLowerCase()], duration: "h" })
+                    ];
+
+                    if (currentNotes.second.includes('#') || currentNotes.second.includes('b')) {
+                        notesToDraw[1].addAccidental(0, new Accidental(currentNotes.second.includes('#') ? '#' : 'b'));
+                    }
+
+                    const voice = new Voice({ num_beats: 4, beat_value: 4 });
+                    voice.addTickables(notesToDraw);
+                    new Formatter().joinVoices([voice]).format([voice], 300);
+                    voice.draw(context, stave);
+                } catch (e) {
+                    console.error("Error al dibujar en VexFlow:", e);
+                    staffDiv.textContent = "Error al generar la partitura.";
+                }
+            }
+
+            function showIntervalAsText() {
+                mentalNotesDiv.textContent = `${currentNotes.first} - ${currentNotes.second}`;
+            }
+
+            function generateNewInterval() {
+                answered = false;
+
+                const firstNoteFullName = baseNotes[Math.floor(Math.random() * baseNotes.length)];
+                const interval = intervals[Math.floor(Math.random() * intervals.length)];
+                currentCorrectInterval = interval;
+
+                const [firstNotePitch, firstNoteOctaveStr] = firstNoteFullName.split('/');
+                const firstNoteOctave = parseInt(firstNoteOctaveStr, 10);
+                const firstNoteValue = noteValues[firstNotePitch] + firstNoteOctave * 12;
+                const secondNoteValue = firstNoteValue + interval.semitones;
+                const secondNoteOctave = Math.floor(secondNoteValue / 12);
+                const secondNotePitchName = noteNames[secondNoteValue % 12];
+
+                currentNotes.first = `${firstNotePitch.toUpperCase()}/${firstNoteOctave}`;
+                currentNotes.second = `${secondNotePitchName}/${secondNoteOctave}`;
+
+                updateDisplayForMode();
+            }
+
+            function updateDisplayForMode() {
+                const mode = gameModeSelector.value;
+
+                if (mode === 'identify-staff') {
+                    staffDiv.classList.remove('hidden');
+                    mentalNotesDiv.classList.add('hidden');
+                    drawIntervalOnStaff();
+                } else if (mode === 'identify-mental') {
+                    staffDiv.classList.add('hidden');
+                    mentalNotesDiv.classList.remove('hidden');
+                    showIntervalAsText();
+                }
+
+                feedbackEl.textContent = "Selecciona el intervalo correcto.";
+                feedbackEl.style.color = 'black';
+                buttonsContainer.style.pointerEvents = 'auto';
+            }
+
+            // --- Funciones de la Interfaz de Usuario (UI) ---
+
+            function populateAnswerButtons() {
+                buttonsContainer.innerHTML = '';
+                intervals.forEach(interval => {
+                    const button = document.createElement('button');
+                    button.textContent = interval.name;
+                    button.dataset.intervalName = interval.name;
+                    buttonsContainer.appendChild(button);
+                });
+            }
+
+            function handleAnswerClick(e) {
+                if (e.target.tagName !== 'BUTTON' || answered) return;
+                answered = true;
+                buttonsContainer.style.pointerEvents = 'none';
+
+                const selectedIntervalName = e.target.dataset.intervalName;
+                if (selectedIntervalName === currentCorrectInterval.name) {
+                    feedbackEl.textContent = "¡Correcto!";
+                    feedbackEl.style.color = 'green';
+                } else {
+                    feedbackEl.textContent = `Incorrecto. La respuesta era ${currentCorrectInterval.name}.`;
+                    feedbackEl.style.color = 'red';
+                }
+            }
+
+            function handleNextButtonClick() {
+                generateNewInterval();
+            }
+
+            function handleModeChange() {
+                updateDisplayForMode();
+            }
+
+            // --- Listeners de Eventos y Configuración Inicial ---
+            buttonsContainer.addEventListener('click', handleAnswerClick);
+            nextButton.addEventListener('click', handleNextButtonClick);
+            gameModeSelector.addEventListener('change', handleModeChange);
+
+            populateAnswerButtons();
+            generateNewInterval();
+        };
+    </script>
 </body>
 </html>
